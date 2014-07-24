@@ -59,9 +59,9 @@ app.configure(function(){
   app.set('view engine', 'jade');
   app.use(express.favicon(__dirname + '/public/img/favicon.ico'));
   app.use(helmet.xframe());
-  app.use(helmet.iexss());
-  app.use(helmet.contentTypeOptions());
-  app.use(helmet.hsts());
+  app.use(helmet.xssFilter());
+  app.use(helmet.nosniff());
+  app.use(helmet.hsts({ maxAge: 7776000000 }));
   app.use(helmet.hidePoweredBy());
   app.use(cookieParser);
   app.use(express.json());
@@ -97,7 +97,7 @@ io.set('authorization', function(handshake, cb) {
   if(handshake.headers.cookie)
   {
     cookieParser(handshake, null, function(err) {
-      
+
     if(handshake.signedCookies[sessionKey])
     {
       handshake.sessionID = handshake.signedCookies[sessionKey];
@@ -127,7 +127,7 @@ io.sockets.on('connection', function(socket) {
 
 function getSocketBySessionID(sessionID) {
   var skt = null;
-  
+
   _.each(io.sockets.clients(), function(socket) {
     if(sessionID == socket.store.data.sessionID) skt = socket;
   })
@@ -152,14 +152,14 @@ var redeemXPoints = function(name, value, username) {
           value: value,
           gained: now,
           owner: username
-        },    
+        },
         function(err, body) {
           if(!err && body.ok) {
             console.log("XP '"+name+" ("+value+")' redemmed for user '"+username+"'");
           } else {
             console.log("Wasn't able to redeem XP for user '"+username+"'");
           }
-        });  
+        });
   }
 
 var redeemLoginXPoints = function(username){
@@ -201,7 +201,7 @@ var xpForLevel = function(level) {
   {
     points += Math.floor(lvl + 30 * Math.pow(2, lvl / 10.));
     output = Math.floor(points / 4);
-  } 
+  }
   return output;
 }
 
@@ -287,7 +287,7 @@ function ensureAuthenticated(req, res, next) {
       res.cookie('usr', usr, { httpOnly: false });
     }
 
-    return next(null); 
+    return next(null);
   }
 
   if(req.url != '/') {
@@ -311,13 +311,13 @@ User.findOrCreate = function(profile, done) {
         }
 
         db.insert(
-          { 
+          {
             "provider": profile.provider,
             "username": profile.username || null,
             "email": email,
             "profile": "public",
             "type": "user"
-          }, 
+          },
           function(err, body, header){
             if(err) {
               console.log('[db.insert] ', err.message);
@@ -331,7 +331,7 @@ User.findOrCreate = function(profile, done) {
               var user = body;
               return done(err, user);
             });
-        }); 
+        });
       }
   });
 };
@@ -368,7 +368,7 @@ passport.use(new GoogleStrategy({
 ));
 
 app.get('/login', forceSSL, function(req, res) {
-  if(req.isAuthenticated()) res.redirect('/'); 
+  if(req.isAuthenticated()) res.redirect('/');
 
   fs.readFile(__dirname + '/views/welcome.html', 'utf8', function(err, text){
     res.send(text);
@@ -384,7 +384,7 @@ app.get('/impressum', forceSSL, function(req, res) {
 app.get('/auth/twitter',
   passport.authenticate('twitter'));
 
-app.get('/auth/twitter/callback', 
+app.get('/auth/twitter/callback',
   passport.authenticate('twitter', { failureRedirect: '/login' }),
   function(req, res) {
     if(_.has(res.req, "user")) {
@@ -421,7 +421,7 @@ app.get('/auth/google/callback',
       var user = res.req.user;
       if(_.isArray(user)) user = _.first(user);
       redeemLoginXPoints(user.username);
-      checkBadgeStammgast(user.username, res.sessionID);  
+      checkBadgeStammgast(user.username, res.sessionID);
     }
     res.redirect('/');
   }
@@ -450,7 +450,7 @@ app.get('/', forceSSL, ensureAuthenticated, function(req, res){
 
 app.get('/set/category', forceSSL, ensureAuthenticated, function(req, res){
   db.view('misc', 'all_set_categories', { group: true }, function(err, body) {
-    
+
     if (!err) {
       var docs = _.map(body.rows, function(doc) { return {name: _.first(doc.key), count: doc.value }});
       res.json(docs);
@@ -466,14 +466,14 @@ app.get('/typeahead/set/category', forceSSL, function(req, res){
   if(!_.isUndefined(req.query.q)) query = req.query.q;
 
   db.view('misc', 'all_set_categories', { group: true, startkey: new Array(query) }, function(err, body) {
-    
+
     if (!err) {
-      
-      var docs = _.filter(body.rows, function(doc){ 
+
+      var docs = _.filter(body.rows, function(doc){
         return _.first(doc.key).toLowerCase().indexOf(query.toLowerCase()) > -1;
       });
       docs = _.map(docs, function(doc) { return {value: _.first(doc.key), tokens: doc.key, count: doc.value }});
-      
+
       res.json(docs);
     } else {
       console.log("[db.cards/by_set]", err.message);
@@ -487,7 +487,7 @@ app.get('/typeahead/set/visibility', forceSSL, function(req, res){
 
   db.view('sets', 'by_visibility', { startkey: new Array(query) }, function(err, body) {
     if (!err) {
-      var docs = _.filter(body.rows, function(doc){ 
+      var docs = _.filter(body.rows, function(doc){
         return doc.value.name.toLowerCase().indexOf(query.toLowerCase()) > -1;
       });
 
@@ -503,7 +503,7 @@ app.get('/set/category/:category', forceSSL, function(req, res){
   var category = sanitizer.sanitize(req.params.category);
 
   db.view('sets', 'by_category', { startkey: new Array(category), endkey: new Array(category, {}) }, function(err, body) {
-    
+
     if (!err) {
       var docs = _.map(body.rows, function(doc) { return doc.value });
       res.json(docs);
@@ -522,7 +522,7 @@ app.get('/set/:id/personalcard', forceSSL, function(req, res){
   db.view('cards', 'personal_card', { startkey: new Array(req.params.id), endkey: new Array(req.params.id, {}) }, function(err, body) {
 
     var cards = _.filter(body.rows, function(row){ return (row.key[2] == 0); })
-    _.each(cards, function(card){      
+    _.each(cards, function(card){
       var persCard = _.filter(body.rows, function(row){ return ((row.key[2] == 1) && (row.value.cardId == card.value._id) && (row.value.owner == username)); });
       card.value.persCard = persCard;
     }, this);
@@ -541,7 +541,7 @@ app.get('/set/learned', forceSSL, ensureAuthenticated, function(req, res){
     if(!err && !_.isEmpty(body.rows)) {
       var cards = _.filter(body.rows, function(row){ return row.key[2] == 0; });
       var setIds = new Array();
-      _.each(cards, function(card){      
+      _.each(cards, function(card){
         var persCard = _.filter(body.rows, function(row){ return ((row.key[2] == 1) && (row.value.cardId == card.value._id)); });
 
         if(!_.isUndefined(persCard) && !_.isEmpty(persCard)) {
@@ -560,7 +560,7 @@ app.get('/set/learned', forceSSL, ensureAuthenticated, function(req, res){
       db.view('sets', 'by_id_with_cards', function(err, body) {
         var sets = _.filter(body.rows, function(row){ return ((row.key[1] == 0) && ( _.contains(setIds,row.value._id)) )});
 
-        _.each(sets, function(set){      
+        _.each(sets, function(set){
           var cardCnt = _.filter(body.rows, function(row){ return ((row.key[1] == 1) && (row.value.setId == set.value._id)); });
           set.value.cardCnt = cardCnt.length;
 
@@ -589,15 +589,15 @@ app.get('/set/learned', forceSSL, ensureAuthenticated, function(req, res){
     } else {
       console.log(err);
       res.json([]);
-    } 
+    }
   });
 });
 
 app.get('/set/:id/card', forceSSL, function(req, res){
   db.view('cards', 'by_set', { key: new Array(req.params.id) }, function(err, body) {
-    
+
     if (!err) {
-      var docs = _.map(body.rows, function(doc) { 
+      var docs = _.map(body.rows, function(doc) {
         doc.value._id = sanitizer.sanitize(doc.value._id);
         doc.value._rev = sanitizer.sanitize(doc.value._rev);
         doc.value.created = sanitizer.sanitize(doc.value.created);
@@ -631,23 +631,23 @@ app.get('/set/:id/memo/card', forceSSL, function(req, res){
   db.view('cards', 'personal_card', { startkey: new Array(req.params.id), endkey: new Array(req.params.id, {}) }, function(err, body) {
 
     var cards = _.filter(body.rows, function(row){ return (row.key[2] == 0); })
-    _.each(cards, function(card){      
+    _.each(cards, function(card){
       var persCard = _.filter(body.rows, function(row){ return ((row.key[2] == 1) && (row.value.cardId == card.value._id) && (row.value.owner == username)); });
       card.value.persCard = persCard;
     }, this);
     cards = _.pluck(cards, "value");
-    
+
     var cardsFiltered = _.filter(cards, function(card){
       if(_.isEmpty(card.persCard)){ return card};
 
       if(!_.isEmpty(card.persCard)){
         var lastLearned = new Date(card.persCard[0].value.sm_last_learned);
         var nextDate = new Date(card.persCard[0].value.sm_next_date);
-        
+
         if(Date.compare(today, nextDate) >= 0){ return card};
 
         if(parseInt(card.persCard[0].value.sm_instant_repeat) == 1) { return card};
-      };        
+      };
     })
     res.json(_.sortBy(cardsFiltered, function(card){ return card.created }));
   });
@@ -656,7 +656,7 @@ app.get('/set/:id/memo/card', forceSSL, function(req, res){
 app.get('/set/:id', forceSSL, function(req, res){
   db.view('sets', 'by_id', { key: new Array(req.params.id) }, function(err, body) {
     if (!err) {
-      var docs = _.map(body.rows, function(doc) { 
+      var docs = _.map(body.rows, function(doc) {
         doc.value._id = sanitizer.sanitize(doc.value._id);
         doc.value._rev = sanitizer.sanitize(doc.value._rev);
         doc.value.name = sanitizer.sanitize(doc.value.name);
@@ -694,7 +694,7 @@ app.get('/user/:username', forceSSL, ensureAuthenticated, function(req, res){
     } else {
       res.send(404);
     }
-    
+
   });
 });
 
@@ -712,12 +712,12 @@ app.put('/user/:username', forceSSL, ensureAuthenticated, function(req, res){
 
           db.insert(user, body.rows[0].id, function(err, body){
             if(!err) {
-              res.json(body); 
+              res.json(body);
             } else {
               console.log("[db.users/by_username]", err.message);
               res.send(404);
             }
-            
+
           });
         } else {
           console.log(err);
@@ -733,7 +733,7 @@ app.get('/set/user/:username', forceSSL, ensureAuthenticated, function(req, res)
     db.view('sets', 'by_id_with_cards', function(err, body) {
       var sets = _.filter(body.rows, function(row){ return ((row.key[1] == 0) && ( row.value.owner == username )); })
 
-      _.each(sets, function(set){      
+      _.each(sets, function(set){
         var cardCnt = _.filter(body.rows, function(row){ return ((row.key[1] == 1) && (row.value.setId == set.value._id)); });
         set.value.cardCnt = cardCnt.length;
 
@@ -760,7 +760,7 @@ app.get('/set/user/:username', forceSSL, ensureAuthenticated, function(req, res)
       res.json(_.sortBy(sets, function(set){ return set.name }));
     });
   } else {
-    res.send(404);  
+    res.send(404);
   }
 });
 
@@ -774,11 +774,11 @@ app.get('/set', forceSSL, ensureAuthenticated, function(req, res){
     checkBadgeKritiker(user.username, req.sessionID);
     checkBadgeAutor(user.username, req.sessionID);
   }, 1000);
-    
+
   db.view('sets', 'by_id_with_cards', function(err, body) {
     var sets = _.filter(body.rows, function(row){ return ((row.key[1] == 0) && ( row.value.owner == user.username )); })
 
-    _.each(sets, function(set){      
+    _.each(sets, function(set){
       var cardCnt = _.filter(body.rows, function(row){ return ((row.key[1] == 1) && (row.value.setId == set.value._id)); });
       set.value.cardCnt = cardCnt.length;
 
@@ -821,7 +821,7 @@ app.post('/set', forceSSL, ensureAuthenticated, function(req, res){
   data.created = sanitizer.sanitize(time);
 
   db.insert(
-    data, 
+    data,
     function(err, body, header){
       if(err) {
         console.log('[db.insert] ', err.message);
@@ -832,7 +832,7 @@ app.post('/set', forceSSL, ensureAuthenticated, function(req, res){
         if (!err)
           res.json(body);
       });
-  });  
+  });
 });
 
 app.put('/set/:setid', forceSSL, ensureAuthenticated, function(req, res){
@@ -850,7 +850,7 @@ app.put('/set/:setid', forceSSL, ensureAuthenticated, function(req, res){
       data.description = sanitizer.sanitize(req.body.description);
       data.visibility = sanitizer.sanitize(req.body.visibility);
       data.category = sanitizer.sanitize(req.body.category);
-      data.rating = (req.body.rating === 'true');      
+      data.rating = (req.body.rating === 'true');
 
       db.insert(req.body, doc[0]._id, function(err, body, header){
           if(err) {
@@ -894,7 +894,7 @@ app.delete('/set/:setid', forceSSL, ensureAuthenticated, function(req, res){
               }, this);
 
               db.bulk({"docs": personal}, function(err, body) {
-                
+
                 var normalCard = new Array();
                 _.each(docs, function(doc){
                    var doc = {
@@ -904,7 +904,7 @@ app.delete('/set/:setid', forceSSL, ensureAuthenticated, function(req, res){
                 }, this);
 
                 db.bulk({"docs": normalCard}, function(err, body) {
-                  
+
                   db.get(req.params.setid, function(err, body){
                     if(!err) {
                       var doc = {
@@ -1004,7 +1004,7 @@ app.put('/card/:id', forceSSL, ensureAuthenticated, function(req, res){
 
       db.insert(card, req.params.id, function(err, body){
         if(!err) {
-          res.json(body); 
+          res.json(body);
         } else {
           console.log("[db.users/by_username]", err.message);
         }
@@ -1039,14 +1039,14 @@ app.delete('/card/:id', forceSSL, ensureAuthenticated, function(req, res) {
                    }
                    personal.push(doc)
                 }, this);
-                db.bulk({"docs": personal}, function(err, body) {    
-                });               
-                res.json(body);   
-              }    
+                db.bulk({"docs": personal}, function(err, body) {
+                });
+                res.json(body);
+              }
             });
           } else {
             console.log('[db.delete] ', err.message);
-            res.send(404);            
+            res.send(404);
           }
         });
       }
@@ -1082,7 +1082,7 @@ app.post('/card', forceSSL, ensureAuthenticated, function(req, res){
     card.type = "card";
 
     db.insert(
-      card, 
+      card,
       function(err, body, header){
         if(err) {
           console.log('[db.insert] ', err.message);
@@ -1094,7 +1094,7 @@ app.post('/card', forceSSL, ensureAuthenticated, function(req, res){
           if (!err)
             res.json(body);
         });
-    });  
+    });
   }, function(){
     res.send(403);
   });
@@ -1131,7 +1131,7 @@ app.post('/personalcard/:cardid', forceSSL, ensureAuthenticated, function(req, r
     }
 
     db.insert(
-      { 
+      {
         "created": time,
         "owner": user.username,
         "cardId": _.escape(req.body._id),
@@ -1146,7 +1146,7 @@ app.post('/personalcard/:cardid', forceSSL, ensureAuthenticated, function(req, r
         "sm_interval_days": smIntervalDays,
         "sm_last_learned": smLastLearned,
         "sm_next_date": nextDate
-      }, 
+      },
       function(err, body, header){
         if(err) {
           console.log('[db.insert] ', err.message);
@@ -1177,9 +1177,9 @@ app.put('/personalcard/:cardid', forceSSL, ensureAuthenticated, function(req, re
   var username = user.username;
 
   db.view('cards', 'personal_card_by_cardId', { key: new Array(req.body._id)}, function(err, body) {
-    if (!err){  
-      var docs = _.filter(body.rows, function(row){ return (row.value.owner == username ); })  
-      docs = _.map(docs, function(doc) { 
+    if (!err){
+      var docs = _.filter(body.rows, function(row){ return (row.value.owner == username ); })
+      docs = _.map(docs, function(doc) {
         return doc.value
       });
       if (body.rows.length){
@@ -1196,7 +1196,7 @@ app.put('/personalcard/:cardid', forceSSL, ensureAuthenticated, function(req, re
               var nextDate = currentDate.addDays(parseInt(intervalDays));
 
               db.insert(
-              { 
+              {
                 "_rev": docs[0]._rev,
                 "created": docs[0].created,
                 "owner": docs[0].owner,
@@ -1237,7 +1237,7 @@ app.put('/personalcard/:cardid', forceSSL, ensureAuthenticated, function(req, re
 
         if (!_.has(req.body.persCard.value, "last_rated")){
               db.insert(
-              { 
+              {
                 "_rev": docs[0]._rev,
                 "created": docs[0].created,
                 "owner": docs[0].owner,
@@ -1303,12 +1303,12 @@ app.get('/score/:username', forceSSL, ensureAuthenticated, function(req, res){
 
         scores = _.sortBy(scores, "points");
         var groupedScores = _.groupBy(scores, function(score){ return score.setId });
-        
+
         var games = new Array();
         var keys = new Array();
         _.each(groupedScores, function(score){
           var highscore = _.last(score);
-      
+
           keys.push(new Array(game, highscore.setId));
 
           games.push({
@@ -1337,7 +1337,7 @@ app.get('/score/:username', forceSSL, ensureAuthenticated, function(req, res){
             var setScores = _.pluck(body.rows, "value");
             setScores = _.sortBy(setScores, "points");
             groupedSetScores = _.groupBy(setScores, function(score){ return score.setId });
-            
+
             _.each(groupedSetScores, function(score){
               var setHighscore = _.last(score);
 
@@ -1415,12 +1415,12 @@ app.post('/score/:username', forceSSL, ensureAuthenticated, function(req, res){
         owner: owner,
         setId: setId,
         points: points
-      },    
+      },
       function(err, body) {
         if(!err) {
-          checkBadgeMeteor(user.username, req.sessionID);  
+          checkBadgeMeteor(user.username, req.sessionID);
         }
-      });  
+      });
     }
 
     db.view('score', 'score_by_game_set', { key: new Array(game, setId) }, function(err, body) {
@@ -1443,12 +1443,12 @@ app.post('/score/:username', forceSSL, ensureAuthenticated, function(req, res){
       var highscores = {};
       _.each(scores, function(score){
         if(_.has(highscores, score.owner)) {
-          if(highscores[score.owner].points < score.points) 
+          if(highscores[score.owner].points < score.points)
             highscores[score.owner] = score;
         } else {
           highscores[score.owner] = score;
         }
-        
+
       });
 
       highscores = _.flatten(highscores);
@@ -1553,10 +1553,10 @@ app.get('/xp/:username', forceSSL, ensureAuthenticated, function(req, res){
         pointsLevel: pointsPerLevel
       }
 
-      
+
     }
     res.json(result);
-    
+
   });
 });
 
@@ -1572,7 +1572,7 @@ app.get('/rating/avg/:setId', forceSSL, ensureAuthenticated, function(req, res){
       var ratings = _.pluck(body.rows, "value");
 
       var avgValutation = (_.reduce(_.pluck(ratings, "value"), function(memo, num){ return memo + num; }, 0))/ratings.length;
-      
+
       result.avgValutation = avgValutation;
       result.totalValutations = ratings.length;
 
@@ -1610,7 +1610,7 @@ app.get('/rating/permission/:setId', forceSSL, ensureAuthenticated, function(req
       console.log("[rating/by_set_owner]", err);
       res.send(404);
     }
-  });  
+  });
 });
 
 app.get('/set/rating/:setId', forceSSL, ensureAuthenticated, function(req, res){
@@ -1643,7 +1643,7 @@ app.post('/set/rating/:setId', forceSSL, ensureAuthenticated, function(req, res)
         comment: comment,
         setId: setId,
         owner: owner
-      },    
+      },
       function(err, body) {
         if(!err && body.ok) {
           redeemXPoints('rating', 1, owner);
@@ -1655,7 +1655,7 @@ app.post('/set/rating/:setId', forceSSL, ensureAuthenticated, function(req, res)
       });
   } else {
     res.send(400);
-  }   
+  }
 });
 
 app.get('/badge/:username', forceSSL, ensureAuthenticated, function(req, res){
@@ -1667,7 +1667,7 @@ app.get('/badge/:username', forceSSL, ensureAuthenticated, function(req, res){
     if(!_.isUndefined(body.rows) && !err && body.rows.length > 0) {
       var badges = _.pluck(body.rows, "value");
       var idxBadges = _.indexBy(badges, "_id");
-      
+
         db.view("issuedBadge", "by_owner", { keys: new Array(user) }, function(err, body) {
           if(!_.isUndefined(body.rows) && !err && body.rows.length > 0) {
             var issuedBadges = _.sortBy(_.pluck(body.rows, "value"), function(badge) {
@@ -1693,7 +1693,7 @@ app.get('/badge/:username', forceSSL, ensureAuthenticated, function(req, res){
 
               _.each(badgeProcess, function(process){
                 var b = _.findWhere(results, { _id: process.badge});
-                
+
                 if(_.has(b, "user")) {
                   b.user.progress = process.score;
                   b.user.nextRank = process.nextRank;
@@ -1735,7 +1735,7 @@ var checkDaysInRow = function(daysInRow, username, callback) {
 
       if(current.isBefore(prev)) {
         var daysBetween = current.getDaysBetween(prev);
-        if(daysBetween == 1) { 
+        if(daysBetween == 1) {
           row++;
         } else if(daysBetween > 1) {
           break;
@@ -1772,7 +1772,7 @@ var issueBadge = function(badge, owner, sessionID, rank, score, callback) {
           score: score,
           issuedOn: Math.round((new Date()).getTime() / 1000),
           owner: owner
-        },    
+        },
         function(err, body) {
           if(!err && body.ok) {
             console.log("Badge '"+badge+"' ("+rank+") issued for user '"+owner+"'");
@@ -1781,7 +1781,7 @@ var issueBadge = function(badge, owner, sessionID, rank, score, callback) {
               console.log(badge);
               sendMessageToUser(sessionID, "badge", { badge: badge._id, rank: rank, title: badge.name});
             })
-            
+
           } else {
             console.log("No Badge for '"+username+"'");
           }
@@ -1809,24 +1809,24 @@ var setBadgeProgress = function(badge, owner, score, nextRank) {
       db.insert(badgeProgress,
       function(err, body){
         if(!err && body.ok) {
-          
+
         } else {
-          
+
         }
-      }); 
+      });
     } else {
       var badgeProgress = body;
       badgeProgress.score = score;
       badgeProgress.nextRank = nextRank;
 
-      db.insert(badgeProgress,    
+      db.insert(badgeProgress,
       function(err, body) {
         if(!err && body.ok) {
-          
+
         } else {
-          
+
         }
-      });  
+      });
     }
   });
 }
@@ -1837,7 +1837,7 @@ var checkBadgeStammgast = function(owner, sessionID) {
   db.get(badge, function(err, body) {
   if (!err) {
     _.each(body.rank, function(days) {
-      
+
       checkDaysInRow(days, owner, function(result, days){
         var rank = _.indexOf(_.values(body.rank), days)+1;
         var nextRank = _.indexOf(_.values(body.rank), days);
@@ -1920,7 +1920,7 @@ var checkBadgeAutor = function(owner, sessionID) {
         db.view('sets', 'by_id_with_cards', function(err, body) {
         var sets = _.filter(body.rows, function(row){ return ((row.key[1] == 0) && ( row.value.owner == owner )); })
 
-        _.each(sets, function(set){      
+        _.each(sets, function(set){
           var cardCnt = _.filter(body.rows, function(row){ return ((row.key[1] == 1) && (row.value.setId == set.value._id)); });
           set.value.cardCnt = cardCnt.length;
 
@@ -1991,7 +1991,7 @@ var checkBadgeKritikerLiebling = function(owner, sessionID) {
               } else {
                 setBadgeProgress(badge, owner, 0, rank[3]);
               }
-              
+
             });
           }
         });
@@ -2011,7 +2011,7 @@ var checkBadgeStreber = function(owner, sessionID) {
         if(!err && !_.isUndefined(body.rows) && _.size(body.rows) > 0) {
           var cards = _.filter(body.rows, function(row){ return row.key[2] == 0; });
           var setIds = new Array();
-          _.each(cards, function(card){      
+          _.each(cards, function(card){
             var persCard = _.filter(body.rows, function(row){ return ((row.key[2] == 1) && (row.value.cardId == card.value._id)); });
 
             if(!_.isUndefined(persCard) && !_.isEmpty(persCard)) {
@@ -2042,7 +2042,7 @@ var checkBadgeStreber = function(owner, sessionID) {
               db.view('cards', 'personal_card_by_cardId', { keys: keys}, function(err, body) {
                 if (!err) {
                   var docs = _.map(body.rows, function(doc) { return doc.value});
-                  
+
                   var learnedCards = new Array();
                   _.each(docs, function(doc){
                     if(doc.times_learned >= 1) learnedCards.push(doc);
@@ -2070,10 +2070,10 @@ var checkBadgeStreber = function(owner, sessionID) {
               });
             }
           });
-        } 
-      }); 
+        }
+      });
     }
-  }); 
+  });
 }
 
 var checkBadgeKritiker = function(owner, sessionID) {
@@ -2083,13 +2083,13 @@ var checkBadgeKritiker = function(owner, sessionID) {
         var rank = body.rank;
         db.view('rating', 'by_owner', { startkey: new Array(owner), endkey: new Array(owner) }, function(err, body) {
         var sets = _.pluck(body.rows, "value");
-        sets = _.filter(sets, function(set){ 
+        sets = _.filter(sets, function(set){
           if(_.has(set, "comment")) {
             return set.comment.length >= 60;
           } else {
-            return false;  
+            return false;
           }
-          
+
         });
 
         var nextRank = rank[2];
@@ -2102,7 +2102,7 @@ var checkBadgeKritiker = function(owner, sessionID) {
           }
           setBadgeProgress(badge, owner, sets.length, nextRank);
         });
-        
+
       });
     }
   });
@@ -2157,7 +2157,7 @@ app.get('/syncbadges', ensureAuthenticated, function(req, res) {
       var issuedBadges = _.sortBy(_.pluck(body.rows, "value"), function(badge) {
         return badge.rank;
       });
-      
+
       db.view("users", "by_username", { keys: new Array(user.username) }, function(err, body) {
         if(!err && _.size(body.rows) > 0) {
           var user = _.first(body.rows).value;
@@ -2193,7 +2193,7 @@ app.get('/syncbadges', ensureAuthenticated, function(req, res) {
 if(process.env.NODE_ENV === 'production') {
   process.on('uncaughtException', function (err) {
     console.log(err);
-    process.exit(1); 
+    process.exit(1);
   });
 
   https_server.listen(443, function(){
