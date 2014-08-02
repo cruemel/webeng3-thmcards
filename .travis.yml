@@ -10,7 +10,7 @@ before_script:
 - npm install
 - npm install -g se-interpreter
 script:
-- se-interpreter tests/selenium/interpreter_config.json
+- se-interpreter interpreter_config.json
 env:
   global:
   - SAUCE_USERNAME=ber_ola
