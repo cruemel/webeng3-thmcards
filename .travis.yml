@@ -1,0 +1,17 @@
+language: node_js
+node_js:
+- '0.11'
+- '0.10'
+services:
+- couchdb
+install:
+- python createviews.py
+before_script:
+- npm install
+- npm install -g se-interpreter
+script:
+- se-interpreter tests/selenium/interpreter_config.json
+env:
+  global:
+  - secure: B5uaS0npFdqlfumnxPFLAPU20mzSd31prQveSoGKbWDUTCv5BL/End5MtAWMwBrLbYpvq2L57VU0s3ALpCFPO9y2Uj5dh0i2azm2dQWhb7FTJDurCriSk32PFkUxtmLaxZgCeXExe7gB8Ikfn7jhXQQShm7lWX4I0RnnYQ7SlSk=
+  - secure: VKXIfM+/ncyRCgMRhMTrb7AErOrcUEaAaQS3VsDu1uEEKUga6Av7foCxsDsj77ZiuNQJGC4n2Glo0JV4D39r5AUxen0xwmM+mMpX63EC+g5Itu9nUo1BoCgu1tEqz5acKK8hMlRcKDGJ26xmE199gSNEeerXIegYZwH3t8UCah4=
