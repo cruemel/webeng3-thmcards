@@ -3,6 +3,8 @@ THMcards
 
 Fork of THMcards by THM, Giessen
 
+[![Build Status](https://travis-ci.org/cruemel/webeng3-thmcards.svg?branch=master)](https://travis-ci.org/cruemel/webeng3-thmcards)
+
 Credits
 ---------------------
 
