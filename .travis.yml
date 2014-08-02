@@ -14,5 +14,4 @@ script:
 env:
   global:
   - SAUCE_USERNAME=ber_ola
-  - SAUCE_ACCESS_KEY=
-      secure: VKXIfM+/ncyRCgMRhMTrb7AErOrcUEaAaQS3VsDu1uEEKUga6Av7foCxsDsj77ZiuNQJGC4n2Glo0JV4D39r5AUxen0xwmM+mMpX63EC+g5Itu9nUo1BoCgu1tEqz5acKK8hMlRcKDGJ26xmE199gSNEeerXIegYZwH3t8UCah4=
+  - secure: "VKXIfM+/ncyRCgMRhMTrb7AErOrcUEaAaQS3VsDu1uEEKUga6Av7foCxsDsj77ZiuNQJGC4n2Glo0JV4D39r5AUxen0xwmM+mMpX63EC+g5Itu9nUo1BoCgu1tEqz5acKK8hMlRcKDGJ26xmE199gSNEeerXIegYZwH3t8UCah4="
