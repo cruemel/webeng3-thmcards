@@ -5,7 +5,7 @@
   "steps": [
     {
       "type": "get",
-      "url": "http://thmcards.cloudcontrolled.com/"
+      "url": "http://tmc.cloudcontrolled.com/"
     }
   ],
   "data": {

@@ -21,5 +21,3 @@ deploy:
   password:
     secure: PWcB1+lJ2uZxmbq4YPurfjiYLbV93efuD4lDt/nQh3Q+VazHsk0u6u8sG3mLiCqlQEaoxKOdbGPpWJ2u3iAu+RKqP/NQ4pYl5NfcvaA9ZGQW3Ex5jDbyy53m++DDHo6ue7Cb+m7e6TPQ8I7SUUXiBO+mVplX3qI1qGdhU6leZ8Y=
   deployment: tmc/default
-  on:
-    repo: cruemel/webeng3-thmcards
